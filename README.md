@@ -1,6 +1,6 @@
-# Lumen 语言设计规范 v2
+# Zexa 语言设计规范
 
-> *Lumen* — 渐进精确、声明并发、恐慌隔离、类型演化，编译到 JavaScript 的实用语言。
+> *Zexa* — 渐进精确、声明并发、恐慌隔离、类型演化，编译到 JavaScript 的实用语言。
 
 ---
 
@@ -21,7 +21,7 @@
 
 语法尽量贴近 JavaScript，降低学习成本。使用 `let`/`const`、花括号、箭头函数等 JS 开发者熟悉的形式。
 
-```lumen
+```zexa
 // 类型定义 —— 代数类型
 type Option<T> = None | Some(T)
 
@@ -63,7 +63,7 @@ let [first, ...rest] = items
 - 行多态支持灵活的 Record 类型
 - 代数效果通过 `IO`、`Async` 等标记
 
-```lumen
+```zexa
 // 泛型
 let identity = <T>(x: T): T => x
 
@@ -85,7 +85,7 @@ let pureCalc = (x: Int): Int => x * 2  // 无标注 = 纯函数
 
 ### 草稿类型
 
-```lumen
+```zexa
 // 草稿类型：... 表示还有未定义的字段
 draft type Config = {
   host: String,
@@ -103,7 +103,7 @@ let x = config.timeout  // ⚠ timeout 未在 Config 中定义 (draft)
 
 ### 逐步细化
 
-```lumen
+```zexa
 // 补充字段（只允许添加，不允许删除或改变已有字段类型）
 refine type Config = {
   host: String,
@@ -126,7 +126,7 @@ final type Config = {
 
 ### 草稿函数
 
-```lumen
+```zexa
 draft let processOrder = (order: Order): Result => {
   let validated = validate(order)
   todo("应用折扣")        // 占位符，运行时抛 TodoError
@@ -140,7 +140,7 @@ draft let processOrder = (order: Order): Result => {
 
 ### 草稿传播规则
 
-```lumen
+```zexa
 // draft 有传染性：依赖 draft 的函数/模块也必须标记 draft
 final let main = (): IO<()> => {   // ✗ 编译错误：依赖草稿函数 processOrder
   processOrder(someOrder)
@@ -153,7 +153,7 @@ draft let main = (): IO<()> => {   // ✓
 
 ### 编译到 JS
 
-```lumen
+```zexa
 draft type Config = { host: String, port: Int, ... }
 ```
 
@@ -168,7 +168,7 @@ function __draftAccess(obj, typeName, knownFields) {
   return new Proxy(obj, {
     get(target, prop) {
       if (typeof prop === 'string' && !knownFields.has(prop)) {
-        console.warn(`[Lumen] Accessing unknown field '${prop}' on draft type '${typeName}'`);
+        console.warn(`[Zexa] Accessing unknown field '${prop}' on draft type '${typeName}'`);
       }
       return target[prop];
     }
@@ -192,7 +192,7 @@ function todo(description) {
 
 > 声明依赖而非顺序，编译器自动推导执行顺序和并行机会。
 
-```lumen
+```zexa
 recipe let buildReport = (userId: UserId): Async<Report> => {
   let user     = fetchUser(userId)       // 独立
   let orders   = fetchOrders(userId)     // 独立
@@ -219,7 +219,7 @@ recipe let buildReport = (userId: UserId): Async<Report> => {
 
 ### 配合 `isolate` 做容错
 
-```lumen
+```zexa
 recipe let resilientReport = (userId: UserId): Async<Report> => {
   let user    = isolate { fetchUser(userId) }      // Result<User, Panic>
   let orders  = isolate { fetchOrders(userId) }    // Result<List<Order>, Panic>
@@ -230,7 +230,7 @@ recipe let resilientReport = (userId: UserId): Async<Report> => {
 
 ### 编译到 JS
 
-```lumen
+```zexa
 recipe let buildReport = (userId: UserId): Async<Report> => {
   let user     = fetchUser(userId)
   let orders   = fetchOrders(userId)
@@ -274,7 +274,7 @@ async function buildReport(userId) {
 
 > 任何表达式可以在隔离域中求值，异常不传播，返回 `Result`。
 
-```lumen
+```zexa
 let result = isolate {
   let x = mightPanic()
   let y = alsoRisky(x)
@@ -290,7 +290,7 @@ match result {
 
 ### 带选项
 
-```lumen
+```zexa
 // 超时
 let result = isolate({ timeout: 5000 }) {
   potentiallyInfinite()
@@ -306,7 +306,7 @@ let outer = isolate {
 
 ### 与 `recipe` 组合
 
-```lumen
+```zexa
 recipe let loadDashboard = (userId: UserId): Async<Dashboard> => {
   let profile  = isolate { fetchProfile(userId) }
   let activity = isolate { fetchActivity(userId) }
@@ -323,7 +323,7 @@ recipe let loadDashboard = (userId: UserId): Async<Dashboard> => {
 
 ### 编译到 JS
 
-```lumen
+```zexa
 let result = isolate {
   let x = mightPanic()
   let y = alsoRisky(x)
@@ -370,7 +370,7 @@ const result = await (async () => {
 
 > 类型可以声明版本演化历史，编译器自动生成迁移链。
 
-```lumen
+```zexa
 evolving type UserProfile {
   v1 = {
     name: String,
@@ -401,7 +401,7 @@ evolving type UserProfile {
 
 ### 使用
 
-```lumen
+```zexa
 // 显式迁移
 let current: UserProfile@v3 = oldData |> migrateTo(@v3)
 
@@ -416,7 +416,7 @@ let loaded: UserProfile@v3 = deserialize(json)
 
 ### 链式迁移
 
-```lumen
+```zexa
 // 编译器自动组合迁移函数
 // migrateTo(@v3) 对 v1 数据 = migrate(v2=>v3) ∘ migrate(v1=>v2)
 // 对 v2 数据 = migrate(v2=>v3)
@@ -433,7 +433,7 @@ let loaded: UserProfile@v3 = deserialize(json)
 
 ### 编译到 JS
 
-```lumen
+```zexa
 evolving type UserProfile {
   v1 = { name: String, email: String }
   v2 = { name: String, email: String, avatar: Url }
@@ -480,7 +480,7 @@ const UserProfile = {
 
 ## 6 类型系统总览
 
-```lumen
+```zexa
 // 基础代数类型
 type Bool = True | False
 type Option<T> = None | Some(T)
@@ -514,7 +514,7 @@ trait Eq<T> {
 
 ## 7 模块系统
 
-```lumen
+```zexa
 module MyApp.Users exposing { User, createUser, findUser }
 
 import Data.List { map, filter }
@@ -527,7 +527,7 @@ draft module MyApp.Billing exposing { * }
 
 ### 模块编译到 JS
 
-```lumen
+```zexa
 module MyApp.Users exposing { User, createUser }
 ```
 
@@ -541,7 +541,7 @@ export const User = { /* type metadata */ };
 
 导入：
 
-```lumen
+```zexa
 import MyApp.Users { createUser }
 ```
 
@@ -556,29 +556,29 @@ import { createUser } from "./MyApp/Users.js";
 ## 8 工具链
 
 ```bash
-$ lumen build
+$ zexa build
   ✓ 12 modules compiled → dist/
   ⚠ 2 draft modules, 5 todos
   ✓ Target: ES2022 JavaScript
 
-$ lumen build --mode production
+$ zexa build --mode production
   ✓ 10 final modules compiled (2 draft modules excluded)
   ✓ Draft proxies removed (zero overhead)
   ✓ Tree-shaken, minified → dist/
 
-$ lumen test
+$ zexa test
   ✓ 89 tests passed
 
-$ lumen draft-report
+$ zexa draft-report
   Types:   Config (2 unknown fields)
   Funcs:   processOrder (1 todo)
   Modules: 1 of 5 draft
   Versions: UserProfile at v3 (2 migrations)
 
-$ lumen migrate --type UserProfile --from v1 --to v3 data.json
+$ zexa migrate --type UserProfile --from v1 --to v3 data.json
   ✓ Migrated 150 records: v1 → v2 → v3
 
-$ lumen check
+$ zexa check
   ✓ All evolving types have complete migration chains
   ✓ All recipe DAGs are acyclic
   ✓ No draft dependencies in final modules
@@ -588,7 +588,7 @@ $ lumen check
 
 ## 9 完整示例
 
-```lumen
+```zexa
 module Shop.Orders
 
 import Shop.Types { Order, Customer, Product, Money }
@@ -793,7 +793,7 @@ export { processOrder, loadOrderDashboard, OrderRecord };
 
 ### 运行时库
 
-编译器附带轻量运行时（`lumen-runtime.js`），提供：
+编译器附带轻量运行时（`zexa-runtime.js`），提供：
 
 ```javascript
 // Result 类型工具
@@ -815,7 +815,7 @@ export function draftProxy(obj, typeName, knownFields) { /* Proxy wrapper */ }
 
 ### 代数类型编译
 
-```lumen
+```zexa
 type Option<T> = None | Some(T)
 
 let x = Some(42)
@@ -863,9 +863,9 @@ Phase 3 — 高级特性
   └─ 草稿传播检查
 
 Phase 4 — 工具链
-  ├─ lumen build / test / check
-  ├─ lumen draft-report
-  ├─ lumen migrate CLI
+  ├─ zexa build / test / check
+  ├─ zexa draft-report
+  ├─ zexa migrate CLI
   ├─ Source maps
   └─ LSP 语言服务
 ```
